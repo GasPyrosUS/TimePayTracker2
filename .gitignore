@@ -1,6 +1,10 @@
 node_modules/
 .expo/
 dist/
+dist-firebase/
+dist-native/
+firebase-debug.log
+firestore-debug.log
 web-build/
 *.log
 .DS_Store

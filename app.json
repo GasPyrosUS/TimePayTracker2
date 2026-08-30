@@ -2,12 +2,20 @@
   "expo": {
     "name": "Time & Pay Tracker",
     "slug": "time-pay-tracker",
-    "version": "1.9.0",
+    "version": "2.3.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "timepaytracker",
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Time & Pay Tracker to select a timesheet image for review and import.",
+          "cameraPermission": "Allow Time & Pay Tracker to photograph a timesheet for review and import.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true
@@ -17,7 +25,7 @@
         "backgroundColor": "#071A33"
       },
       "package": "com.timepaytracker.mobile",
-      "versionCode": 2
+      "versionCode": 8
     }
   }
 }

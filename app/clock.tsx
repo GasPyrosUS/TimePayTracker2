@@ -18,6 +18,7 @@ import {
   saveEntries,
 } from "../src/lib/storage";
 import { localDateString } from "../src/lib/dates";
+import { captureStorageScope } from "../src/lib/storageScope";
 import { formatTime12h } from "../src/lib/timeFormat";
 import { ensureCurrentPayPeriod } from "../src/lib/timeCards";
 import { ActiveClockSession } from "../src/types/models";
@@ -59,8 +60,10 @@ export default function Clock() {
 
   async function clockOut() {
     if (!activeClock) return;
+    const isCurrent = captureStorageScope();
 
     const entries = await loadEntries();
+    if (!isCurrent()) return;
     const clockOutTime = now();
 
     const entry = {
@@ -72,7 +75,9 @@ export default function Clock() {
     };
 
     await saveEntries([...entries, entry]);
+    if (!isCurrent()) return;
     await clearActiveClock();
+    if (!isCurrent()) return;
     setActiveClock(null);
     await ensureCurrentPayPeriod();
 

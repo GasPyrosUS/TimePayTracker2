@@ -5,6 +5,7 @@ import { View } from "react-native";
 import { AppThemeProvider, useAppTheme } from "../src/context/ThemeContext";
 import { StartupScreen } from "../src/components/StartupScreen";
 import { ensureCurrentPayPeriod } from "../src/lib/timeCards";
+import { AccountProvider } from "../src/context/AccountContext";
 
 function AppShell() {
   const { colors, resolvedMode, ready } = useAppTheme();
@@ -17,7 +18,11 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
-    ensureCurrentPayPeriod().finally(() => setPeriodReady(true));
+    let mounted = true;
+    ensureCurrentPayPeriod().catch(error => {
+      if (mounted) console.warn("Pay-period initialization could not finish.", error instanceof Error ? error.message : "Storage error");
+    }).finally(() => { if (mounted) setPeriodReady(true); });
+    return () => { mounted = false; };
   }, []);
 
   if (!ready || !minimumSplashComplete || !periodReady) {
@@ -42,7 +47,7 @@ function AppShell() {
 export default function Layout() {
   return (
     <AppThemeProvider>
-      <AppShell />
+      <AccountProvider><AppShell /></AccountProvider>
     </AppThemeProvider>
   );
 }

@@ -18,7 +18,7 @@ export function timeCardToCsv(card: SavedTimeCard): string {
   lines.push(
     ["Overtime Multiplier", card.overtimeMultiplier].map(csvCell).join(",")
   );
-  lines.push([]);
+  lines.push("");
 
   lines.push(
     [
@@ -64,7 +64,7 @@ export function timeCardToCsv(card: SavedTimeCard): string {
     );
   }
 
-  lines.push([]);
+  lines.push("");
   lines.push(
     ["TOTAL STRAIGHT HOURS", card.regularHours.toFixed(2)]
       .map(csvCell)

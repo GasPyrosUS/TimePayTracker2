@@ -7,6 +7,7 @@ import {
   TimeEntry,
 } from "../types/models";
 import { localDateString } from "./dates";
+import { privateKey } from "./storageScope";
 
 const ENTRIES_KEY = "tpt_entries_v1_1";
 const SETTINGS_KEY = "tpt_settings_v1_1";
@@ -33,13 +34,14 @@ export const defaultSettings: PaySettings = {
 };
 
 export async function loadEntries(): Promise<TimeEntry[]> {
-  const raw = await AsyncStorage.getItem(ENTRIES_KEY);
+  const raw = await AsyncStorage.getItem(privateKey(ENTRIES_KEY));
   return raw ? JSON.parse(raw) : [];
 }
 
 export async function saveEntries(entries: TimeEntry[]) {
-  await AsyncStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
-  entriesListeners.forEach(listener => listener(entries));
+  const key = privateKey(ENTRIES_KEY);
+  await AsyncStorage.setItem(key, JSON.stringify(entries));
+  if (key === privateKey(ENTRIES_KEY)) entriesListeners.forEach(listener => listener(entries));
 }
 
 export function subscribeEntries(listener: EntriesListener) {
@@ -48,13 +50,14 @@ export function subscribeEntries(listener: EntriesListener) {
 }
 
 export async function loadSettings(): Promise<PaySettings> {
-  const raw = await AsyncStorage.getItem(SETTINGS_KEY);
+  const raw = await AsyncStorage.getItem(privateKey(SETTINGS_KEY));
   return raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings;
 }
 
 export async function saveSettings(settings: PaySettings) {
-  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  settingsListeners.forEach(listener => listener(settings));
+  const key = privateKey(SETTINGS_KEY);
+  await AsyncStorage.setItem(key, JSON.stringify(settings));
+  if (key === privateKey(SETTINGS_KEY)) settingsListeners.forEach(listener => listener(settings));
 }
 
 export function subscribeSettings(listener: SettingsListener) {
@@ -78,18 +81,20 @@ export function subscribeAppearance(listener: AppearanceListener) {
 }
 
 export async function loadActiveClock(): Promise<ActiveClockSession | null> {
-  const raw = await AsyncStorage.getItem(ACTIVE_CLOCK_KEY);
+  const raw = await AsyncStorage.getItem(privateKey(ACTIVE_CLOCK_KEY));
   return raw ? JSON.parse(raw) : null;
 }
 
 export async function saveActiveClock(session: ActiveClockSession) {
-  await AsyncStorage.setItem(ACTIVE_CLOCK_KEY, JSON.stringify(session));
-  activeClockListeners.forEach(listener => listener(session));
+  const key = privateKey(ACTIVE_CLOCK_KEY);
+  await AsyncStorage.setItem(key, JSON.stringify(session));
+  if (key === privateKey(ACTIVE_CLOCK_KEY)) activeClockListeners.forEach(listener => listener(session));
 }
 
 export async function clearActiveClock() {
-  await AsyncStorage.removeItem(ACTIVE_CLOCK_KEY);
-  activeClockListeners.forEach(listener => listener(null));
+  const key = privateKey(ACTIVE_CLOCK_KEY);
+  await AsyncStorage.removeItem(key);
+  if (key === privateKey(ACTIVE_CLOCK_KEY)) activeClockListeners.forEach(listener => listener(null));
 }
 
 export function subscribeActiveClock(listener: ActiveClockListener) {
@@ -99,13 +104,14 @@ export function subscribeActiveClock(listener: ActiveClockListener) {
 
 
 export async function loadTimeCards(): Promise<SavedTimeCard[]> {
-  const raw = await AsyncStorage.getItem(TIME_CARDS_KEY);
+  const raw = await AsyncStorage.getItem(privateKey(TIME_CARDS_KEY));
   return raw ? JSON.parse(raw) : [];
 }
 
 export async function saveTimeCards(cards: SavedTimeCard[]) {
-  await AsyncStorage.setItem(TIME_CARDS_KEY, JSON.stringify(cards));
-  timeCardsListeners.forEach(listener => listener(cards));
+  const key = privateKey(TIME_CARDS_KEY);
+  await AsyncStorage.setItem(key, JSON.stringify(cards));
+  if (key === privateKey(TIME_CARDS_KEY)) timeCardsListeners.forEach(listener => listener(cards));
 }
 
 export function subscribeTimeCards(listener: TimeCardsListener) {

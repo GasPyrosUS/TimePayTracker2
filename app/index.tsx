@@ -186,6 +186,13 @@ export default function Dashboard() {
           <Text style={styles.secondaryText}>+ ADD TIME ENTRY</Text>
         </Pressable>
 
+        <View style={styles.featureRow}>
+          <Pressable style={styles.featureButton} onPress={() => router.push("/team")}>
+            <Text style={styles.featureText}>TEAM HOURS</Text>
+          </Pressable>
+          <ComingSoonScan style={styles.featureButton} />
+        </View>
+
         <Pressable style={styles.historyButton} onPress={() => router.push("/timecards")}>
           <Text style={styles.historyButtonText}>SAVED TIME CARDS & EXPORTS</Text>
         </Pressable>
@@ -360,6 +367,9 @@ const createStyles = (colors: ThemeColors) =>
     },
     secondaryText: { color: colors.text, fontWeight: "900" },
     historyButton: { padding: 13, alignItems: "center", marginTop: 5 },
+    featureRow: { flexDirection: "row", gap: 9, marginTop: 9 },
+    featureButton: { flex: 1, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, padding: 13, alignItems: "center" },
+    featureText: { color: colors.green, fontWeight: "900", fontSize: 11 },
     historyButtonText: { color: colors.green, fontWeight: "900", fontSize: 12 },
     sectionHeader: {
       flexDirection: "row",
@@ -405,3 +415,4 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: 18,
     },
   });
+import { ComingSoonScan } from "../src/components/ComingSoonScan";

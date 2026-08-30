@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function membership(teamId) {
+      return get(/databases/$(database)/documents/teams/$(teamId)/members/$(request.auth.uid));
+    }
+    function member(teamId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/teams/$(teamId)/members/$(request.auth.uid))
+        && membership(teamId).data.active == true;
+    }
+    function validHours(d, teamId, recordId) {
+      return d.keys().hasAll(['id','teamId','userId','memberName','date','clockIn','clockOut','breakMinutes','regularHours','overtimeHours','totalHours','updatedAt'])
+        && d.keys().hasOnly(['id','teamId','userId','memberName','date','clockIn','clockOut','breakMinutes','regularHours','overtimeHours','totalHours','updatedAt','notes'])
+        && (!('notes' in d) || d.notes is string)
+        && d.id == recordId && d.teamId == teamId && d.userId == request.auth.uid
+        && d.memberName is string && d.memberName.size() > 0 && d.memberName.size() <= 100
+        && d.memberName == membership(teamId).data.displayName
+        && d.date is string && d.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+        && d.clockIn is string && d.clockIn.matches('([01][0-9]|2[0-3]):[0-5][0-9]')
+        && d.clockOut is string && d.clockOut.matches('([01][0-9]|2[0-3]):[0-5][0-9]')
+        && d.breakMinutes is int && d.breakMinutes >= 0 && d.breakMinutes <= 1440
+        && d.regularHours is number && d.regularHours >= 0 && d.regularHours <= 24
+        && d.overtimeHours is number && d.overtimeHours >= 0 && d.overtimeHours <= 24
+        && d.totalHours is number && d.totalHours >= 0 && d.totalHours <= 24
+        && d.totalHours >= d.regularHours + d.overtimeHours - 0.02
+        && d.totalHours <= d.regularHours + d.overtimeHours + 0.02
+        && d.updatedAt is string && d.updatedAt.size() <= 30;
+    }
+    match /teams/{teamId} {
+      allow read: if member(teamId);
+      allow write: if false;
+      match /members/{uid} {
+        // A user can inspect only their own membership, including inactive status.
+        // Names needed for the team screen are in the hours projection.
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list, create, update, delete: if false;
+      }
+      match /hours/{recordId} {
+        allow read: if member(teamId);
+        allow create: if member(teamId) && validHours(request.resource.data, teamId, recordId);
+        // Both existing and incoming owner must match. Never allow taking over
+        // a coworker's document by changing its userId to your own UID.
+        allow update: if member(teamId) && resource.data.userId == request.auth.uid
+          && validHours(request.resource.data, teamId, recordId);
+        allow delete: if member(teamId) && (
+          !exists(/databases/$(database)/documents/teams/$(teamId)/hours/$(recordId))
+          || resource.data.userId == request.auth.uid
+        );
+      }
+    }
+    // Everything else, including any private-pay collections, is denied.
+    match /{document=**} { allow read, write: if false; }
+  }
+}

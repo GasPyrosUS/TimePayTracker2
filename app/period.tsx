@@ -199,6 +199,8 @@ export default function Period() {
           </Pressable>
         </View>
 
+        <ComingSoonScan style={styles.scanButton} label="SCAN / IMPORT TIMESHEET" />
+
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Saved Entries</Text>
           <Text style={styles.sectionHint}>Tap to edit</Text>
@@ -375,6 +377,8 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: "center",
       marginBottom: 9,
     },
+    scanButton: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 11, padding: 14, alignItems: "center", marginTop: -10, marginBottom: 20 },
+    scanText: { color: colors.green, fontWeight: "900", fontSize: 12 },
     sectionTitle: {
       color: colors.text,
       fontSize: 18,
@@ -429,3 +433,4 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "900",
     },
   });
+import { ComingSoonScan } from "../src/components/ComingSoonScan";

@@ -58,3 +58,30 @@ export type SavedTimeCard = {
   paidHours: number;
   grossPay: number;
 };
+
+/** Public team projection. Pay and rate fields intentionally cannot exist here. */
+export type TeamHoursRecord = {
+  id: string;
+  teamId: string;
+  userId: string;
+  memberName: string;
+  date: string;
+  clockIn: string;
+  clockOut: string;
+  breakMinutes: number;
+  regularHours: number;
+  overtimeHours: number;
+  totalHours: number;
+  updatedAt: string;
+  notes: string;
+};
+
+export type ImportedTimeEntry = {
+  id: string;
+  selected: boolean;
+  date: string;
+  clockIn: string;
+  clockOut: string;
+  breakMinutes: number;
+  warnings: string[];
+};
