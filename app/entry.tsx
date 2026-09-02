@@ -3,7 +3,6 @@ import {
   Alert,
   FlatList,
   Modal,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,15 +11,15 @@ import {
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { AnimatedPressable } from "../src/components/AnimatedPressable";
 import { useAppTheme } from "../src/context/ThemeContext";
 import { ThemeColors } from "../src/data/theme";
 import {
   calculateEntry,
-  dateLabel,
   formatMoney,
   getPayPeriodDates,
 } from "../src/lib/overtime";
-import { localDateString } from "../src/lib/dates";
+import { localDateString, weekdayDateLabel } from "../src/lib/dates";
 import { captureStorageScope } from "../src/lib/storageScope";
 import { confirmEntryDeletion } from "../src/lib/confirmEntryDeletion";
 import { formatTime12h, parseTimeInput } from "../src/lib/timeFormat";
@@ -122,7 +121,7 @@ export default function Entry() {
 
     return [...values].sort().map(value => ({
       value,
-      label: dateLabel(value),
+      label: weekdayDateLabel(value),
       detail: value === today ? "Today" : undefined,
     }));
   }, [settings.periodStart, loadedEntry?.date]);
@@ -153,7 +152,8 @@ export default function Entry() {
           notes,
         },
         settings.hourlyRate,
-        settings.overtimeMultiplier
+        settings.overtimeMultiplier,
+        settings.weekdayBaseHoursEnabled
       ) : null,
     [
       entryId,
@@ -164,6 +164,7 @@ export default function Entry() {
       notes,
       settings.hourlyRate,
       settings.overtimeMultiplier,
+      settings.weekdayBaseHoursEnabled,
     ]
   );
 
@@ -202,7 +203,8 @@ export default function Entry() {
     const result = calculateEntry(
       updatedEntry,
       settings.hourlyRate,
-      settings.overtimeMultiplier
+      settings.overtimeMultiplier,
+      settings.weekdayBaseHoursEnabled
     );
 
     Alert.alert(
@@ -237,9 +239,9 @@ export default function Entry() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()}>
+        <AnimatedPressable onPress={() => router.back()}>
           <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <View style={styles.top}>
           <Text style={styles.header}>
@@ -261,9 +263,19 @@ export default function Entry() {
 
         {!editing && <ComingSoonScan style={styles.scanButton} label="SCAN PHYSICAL TIMESHEET" />}
 
+        {settings.weekdayBaseHoursEnabled && (
+          <View style={styles.weekdayModeNotice}>
+            <Text style={styles.weekdayModeTitle}>8-hour weekday mode is on</Text>
+            <Text style={styles.weekdayModeText}>
+              Monday–Friday straight time is added separately. This entry adds
+              only qualifying overtime hours and overtime pay.
+            </Text>
+          </View>
+        )}
+
         <SelectField
           label="Work Date"
-          value={dateLabel(date)}
+          value={`${weekdayDateLabel(date)}${date === localDateString() ? " • Today" : ""}`}
           onPress={() => openPicker("Work Date", date, dateChoices, setDate)}
           styles={styles}
         />
@@ -338,7 +350,7 @@ export default function Entry() {
                 {formatTime12h(clockIn)} – {formatTime12h(clockOut)}
               </Text>
             </View>
-            <Text style={styles.previewDate}>{dateLabel(date)}</Text>
+            <Text style={styles.previewDate}>{weekdayDateLabel(date)}</Text>
           </View>
 
           <View style={styles.statsRow}>
@@ -367,16 +379,16 @@ export default function Entry() {
           </View>
         </View> : <Text accessibilityLiveRegion="polite" style={styles.timeError}>Enter two valid times to see the hours and pay preview.</Text>}
 
-        <Pressable accessibilityRole="button" style={[styles.button, (!clockIn || !clockOut || deleting) && { opacity: 0.5 }]} disabled={deleting || !clockIn || !clockOut} onPress={save}>
+        <AnimatedPressable accessibilityRole="button" style={[styles.button, (!clockIn || !clockOut || deleting) && { opacity: 0.5 }]} disabled={deleting || !clockIn || !clockOut} onPress={save}>
           <Text style={styles.buttonText}>
             {editing ? "SAVE CHANGES" : "SAVE ENTRY"}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
 
         {editing && (
-          <Pressable accessibilityRole="button" style={[styles.deleteButton, deleting && { opacity: 0.5 }]} disabled={deleting} onPress={() => void confirmDelete()}>
+          <AnimatedPressable accessibilityRole="button" style={[styles.deleteButton, deleting && { opacity: 0.5 }]} disabled={deleting} onPress={() => void confirmDelete()}>
             <Text style={styles.deleteText}>{deleting ? "DELETING…" : "DELETE ENTRY"}</Text>
-          </Pressable>
+          </AnimatedPressable>
         )}
         {!!deleteError && <Text accessibilityRole="alert" style={[styles.deleteText, { marginTop: 10 }]}>{deleteError}</Text>}
       </ScrollView>
@@ -388,7 +400,7 @@ export default function Entry() {
         onRequestClose={() => setPicker(null)}
       >
         <View style={styles.modalOverlay}>
-          <Pressable
+          <AnimatedPressable
             style={StyleSheet.absoluteFill}
             onPress={() => setPicker(null)}
           />
@@ -397,9 +409,9 @@ export default function Entry() {
               <Text style={styles.modalTitle}>
                 Choose {picker?.title ?? ""}
               </Text>
-              <Pressable style={styles.closeButton} onPress={() => setPicker(null)}>
+              <AnimatedPressable style={styles.closeButton} onPress={() => setPicker(null)}>
                 <Text style={styles.closeText}>×</Text>
-              </Pressable>
+              </AnimatedPressable>
             </View>
 
             <FlatList
@@ -413,7 +425,7 @@ export default function Entry() {
                 const selected = item.value === picker?.value;
 
                 return (
-                  <Pressable
+                  <AnimatedPressable
                     style={[
                       styles.option,
                       selected && styles.optionSelected,
@@ -437,7 +449,7 @@ export default function Entry() {
                       )}
                     </View>
                     {selected && <Text style={styles.check}>✓</Text>}
-                  </Pressable>
+                  </AnimatedPressable>
                 );
               }}
             />
@@ -472,9 +484,9 @@ function TimeInputField({ label, value, onChangeText, onBlur, invalid, onPress, 
         selectTextOnFocus
         returnKeyType="done"
       />
-      <Pressable accessibilityRole="button" accessibilityLabel={`Choose ${label} from list`} style={styles.timeDropdown} onPress={onPress}>
+      <AnimatedPressable accessibilityRole="button" accessibilityLabel={`Choose ${label} from list`} style={styles.timeDropdown} onPress={onPress}>
         <Text style={styles.chevron}>⌄</Text>
-      </Pressable>
+      </AnimatedPressable>
     </View>
     {invalid && <Text accessibilityLiveRegion="polite" style={styles.timeError}>Use a valid time, e.g. 7:30 AM.</Text>}
   </View>;
@@ -494,12 +506,12 @@ function SelectField({
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <Pressable style={styles.select} onPress={onPress}>
+      <AnimatedPressable style={styles.select} onPress={onPress}>
         <Text style={styles.selectText} numberOfLines={1}>
           {value}
         </Text>
         <Text style={styles.chevron}>⌄</Text>
-      </Pressable>
+      </AnimatedPressable>
     </View>
   );
 }
@@ -663,6 +675,16 @@ const createStyles = (colors: ThemeColors) =>
     deleteText: { color: colors.red, fontWeight: "900" },
     scanButton: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 11, padding: 14, alignItems: "center", marginBottom: 14 },
     scanText: { color: colors.green, fontWeight: "900", fontSize: 12 },
+    weekdayModeNotice: {
+      backgroundColor: colors.surfaceAlt,
+      borderColor: colors.green,
+      borderRadius: 12,
+      borderWidth: 1,
+      marginBottom: 14,
+      padding: 13,
+    },
+    weekdayModeTitle: { color: colors.green, fontWeight: "900" },
+    weekdayModeText: { color: colors.text, fontSize: 12, lineHeight: 18, marginTop: 4 },
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.55)",

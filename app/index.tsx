@@ -1,24 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   SafeAreaView,
   View,
   Text,
   StyleSheet,
-  Pressable,
   ScrollView,
   RefreshControl,
+  Switch,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
+import { AnimatedPressable } from "../src/components/AnimatedPressable";
+import { ComingSoonScan } from "../src/components/ComingSoonScan";
 import { StatCard } from "../src/components/StatCard";
 import { useAppTheme } from "../src/context/ThemeContext";
 import { ThemeColors } from "../src/data/theme";
 import {
   calculateEntry,
+  calculatePayPeriodTotals,
   dateLabel,
   formatMoney,
-  getPayPeriodDates,
 } from "../src/lib/overtime";
-import { addLocalDays } from "../src/lib/dates";
+import { addLocalDays, getPayPeriodProgress } from "../src/lib/dates";
 import { formatTime12h } from "../src/lib/timeFormat";
 import { ensureCurrentPayPeriod } from "../src/lib/timeCards";
 import {
@@ -26,6 +29,7 @@ import {
   loadEntries,
   loadSettings,
   loadActiveClock,
+  saveSettings,
   subscribeActiveClock,
   subscribeEntries,
   subscribeSettings,
@@ -40,6 +44,7 @@ export default function Dashboard() {
   const [settings, setSettings] = useState<PaySettings>(defaultSettings);
   const [refreshing, setRefreshing] = useState(false);
   const [activeClock, setActiveClock] = useState<ActiveClockSession | null>(null);
+  const [savingWeekdayMode, setSavingWeekdayMode] = useState(false);
 
   const refresh = useCallback(async () => {
     await ensureCurrentPayPeriod();
@@ -80,6 +85,25 @@ export default function Dashboard() {
     }
   }, [refresh]);
 
+  async function toggleWeekdayBaseHours(enabled: boolean) {
+    if (savingWeekdayMode) return;
+    const previous = settings;
+    const updated = { ...settings, weekdayBaseHoursEnabled: enabled };
+    setSettings(updated);
+    setSavingWeekdayMode(true);
+    try {
+      await saveSettings(updated);
+    } catch {
+      setSettings(previous);
+      Alert.alert(
+        "Setting not changed",
+        "The weekday straight-time mode could not be saved. Please try again."
+      );
+    } finally {
+      setSavingWeekdayMode(false);
+    }
+  }
+
   const calculated = useMemo(
     () =>
       entries
@@ -87,7 +111,8 @@ export default function Dashboard() {
           calculateEntry(
             entry,
             settings.hourlyRate,
-            settings.overtimeMultiplier
+            settings.overtimeMultiplier,
+            settings.weekdayBaseHoursEnabled
           )
         )
         .sort((a, b) => {
@@ -95,32 +120,23 @@ export default function Dashboard() {
           if (dateCompare !== 0) return dateCompare;
           return a.id.localeCompare(b.id);
         }),
-    [entries, settings.hourlyRate, settings.overtimeMultiplier]
-  );
-
-  const currentPeriodDates = useMemo(
-    () => new Set(getPayPeriodDates(settings.periodStart)),
-    [settings.periodStart]
-  );
-
-  const currentPeriodEntries = useMemo(
-    () => calculated.filter(entry => currentPeriodDates.has(entry.date)),
-    [calculated, currentPeriodDates]
+    [
+      entries,
+      settings.hourlyRate,
+      settings.overtimeMultiplier,
+      settings.weekdayBaseHoursEnabled,
+    ]
   );
 
   const totals = useMemo(
-    () =>
-      currentPeriodEntries.reduce(
-        (total, entry) => ({
-          regular: total.regular + entry.regularHours,
-          overtime: total.overtime + entry.overtimeHours,
-          pay: total.pay + entry.totalPay,
-        }),
-        { regular: 0, overtime: 0, pay: 0 }
-      ),
-    [currentPeriodEntries]
+    () => calculatePayPeriodTotals(entries, settings),
+    [entries, settings]
   );
 
+  const periodProgress = useMemo(
+    () => getPayPeriodProgress(settings.periodStart),
+    [settings.periodStart]
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -144,71 +160,115 @@ export default function Dashboard() {
           </View>
         </View>
 
+        <View style={styles.nav}>
+          <Nav label="Dashboard" active onPress={() => {}} colors={colors} />
+          <Nav label="Time" onPress={() => router.push("/clock")} colors={colors} />
+          <Nav
+            label="Pay Period"
+            onPress={() => router.push("/period")}
+            colors={colors}
+          />
+          <Nav
+            label="Settings"
+            onPress={() => router.push("/settings")}
+            colors={colors}
+          />
+        </View>
+
+        <View style={styles.weekdayModeCard}>
+          <View style={styles.weekdayModeCopy}>
+            <Text style={styles.weekdayModeTitle}>8-hour weekday straight time</Text>
+            <Text style={styles.weekdayModeText}>
+              {settings.weekdayBaseHoursEnabled
+                ? "ON • Each Monday–Friday gets 8 straight hours. Time entries add overtime only."
+                : "OFF • Time entries use the normal straight-time and overtime calculation."}
+            </Text>
+          </View>
+          <Switch
+            accessibilityLabel="8-hour weekday straight-time mode"
+            accessibilityHint="When enabled, weekdays receive eight straight hours and time entries add overtime only."
+            value={settings.weekdayBaseHoursEnabled}
+            disabled={savingWeekdayMode}
+            onValueChange={value => void toggleWeekdayBaseHours(value)}
+            trackColor={{ false: colors.track, true: colors.green }}
+            thumbColor={settings.weekdayBaseHoursEnabled ? colors.onPrimary : colors.muted}
+            ios_backgroundColor={colors.track}
+          />
+        </View>
+
         <View style={styles.periodCard}>
           <Text style={styles.smallWhite}>CURRENT PAY PERIOD</Text>
           <Text style={styles.periodText}>
             {dateLabel(settings.periodStart)} –{" "}
             {dateLabel(addLocalDays(settings.periodStart, 13))}
           </Text>
+          <Text style={styles.progressLabel}>
+            Day {periodProgress.day} of {periodProgress.totalDays} • {periodProgress.weekday}
+          </Text>
           <View style={styles.progressTrack}>
-            <View style={[styles.progress, { width: "45%" }]} />
+            <View
+              style={[
+                styles.progress,
+                { width: `${periodProgress.fraction * 100}%` },
+              ]}
+            />
           </View>
         </View>
 
         <View style={styles.payCard}>
           <Text style={styles.small}>ESTIMATED GROSS PAY</Text>
-          <Text style={styles.pay}>{formatMoney(totals.pay)}</Text>
+          <Text style={styles.pay}>{formatMoney(totals.estimatedGrossPay)}</Text>
           <View style={styles.stats}>
             <StatCard
               label="Straight Time"
-              value={`${totals.regular.toFixed(1)} hrs`}
+              value={`${totals.regularHours.toFixed(1)} hrs`}
               tone="green"
             />
             <StatCard
               label="Overtime"
-              value={`${totals.overtime.toFixed(1)} hrs`}
+              value={`${totals.overtimeHours.toFixed(1)} hrs`}
               tone="orange"
             />
             <StatCard
               label="Total Hours"
-              value={`${(totals.regular + totals.overtime).toFixed(1)} hrs`}
+              value={`${totals.paidHours.toFixed(1)} hrs`}
             />
           </View>
         </View>
 
-        <Pressable style={styles.primary} onPress={() => router.push("/clock")}>
+        <AnimatedPressable style={styles.primary} onPress={() => router.push("/clock")}>
           <Text style={styles.primaryText}>
             {activeClock ? `CLOCKED IN • ${formatTime12h(activeClock.clockIn)}` : "CLOCK IN"}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
 
-        <Pressable style={styles.secondary} onPress={() => router.push("/entry")}>
+        <AnimatedPressable style={styles.secondary} onPress={() => router.push("/entry")}>
           <Text style={styles.secondaryText}>+ ADD TIME ENTRY</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <View style={styles.featureRow}>
-          <Pressable style={styles.featureButton} onPress={() => router.push("/team")}>
+          <AnimatedPressable style={styles.featureButton} onPress={() => router.push("/team")}>
             <Text style={styles.featureText}>TEAM HOURS</Text>
-          </Pressable>
+          </AnimatedPressable>
           <ComingSoonScan style={styles.featureButton} />
         </View>
 
-        <Pressable style={styles.historyButton} onPress={() => router.push("/timecards")}>
+        <AnimatedPressable style={styles.historyButton} onPress={() => router.push("/timecards")}>
           <Text style={styles.historyButtonText}>SAVED TIME CARDS & EXPORTS</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Time</Text>
-          <Pressable onPress={() => router.push("/period")}>
+          <AnimatedPressable onPress={() => router.push("/period")}>
             <Text style={styles.link}>View all</Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>
 
         {calculated
           .slice(-5)
           .reverse()
           .map(entry => (
-            <Pressable
+            <AnimatedPressable
               key={entry.id}
               style={styles.row}
               onPress={() =>
@@ -236,7 +296,7 @@ export default function Dashboard() {
                   </Text>
                 </Text>
               </View>
-            </Pressable>
+            </AnimatedPressable>
           ))}
 
         {entries.length === 0 && (
@@ -248,20 +308,6 @@ export default function Dashboard() {
           </View>
         )}
 
-        <View style={styles.nav}>
-          <Nav label="Dashboard" active onPress={() => {}} colors={colors} />
-          <Nav label="Time" onPress={() => router.push("/clock")} colors={colors} />
-          <Nav
-            label="Pay Period"
-            onPress={() => router.push("/period")}
-            colors={colors}
-          />
-          <Nav
-            label="Settings"
-            onPress={() => router.push("/settings")}
-            colors={colors}
-          />
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -279,8 +325,12 @@ function Nav({
   colors: ThemeColors;
 }) {
   return (
-    <Pressable onPress={onPress} style={{ flex: 1, paddingVertical: 13, alignItems: "center" }}>
+    <AnimatedPressable
+      onPress={onPress}
+      style={{ flex: 1, minWidth: 0, paddingHorizontal: 2, paddingVertical: 13, alignItems: "center" }}
+    >
       <Text
+        numberOfLines={2}
         style={{
           color: active ? colors.green : colors.muted,
           fontSize: 11,
@@ -289,7 +339,7 @@ function Nav({
       >
         {label}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -330,6 +380,12 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: 17,
       fontWeight: "700",
       marginTop: 5,
+    },
+    progressLabel: {
+      color: "#CBD5E1",
+      fontSize: 12,
+      fontWeight: "700",
+      marginTop: 8,
     },
     progressTrack: {
       height: 7,
@@ -412,7 +468,22 @@ const createStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 14,
-      marginTop: 18,
+      marginBottom: 16,
+      overflow: "hidden",
     },
+    weekdayModeCard: {
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      flexDirection: "row",
+      gap: 12,
+      justifyContent: "space-between",
+      marginBottom: 12,
+      padding: 14,
+    },
+    weekdayModeCopy: { flex: 1, minWidth: 0 },
+    weekdayModeTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
+    weekdayModeText: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
   });
-import { ComingSoonScan } from "../src/components/ComingSoonScan";

@@ -1,12 +1,17 @@
 # Time & Pay Tracker
 
-Version 2.3.1 — Expo SDK 57 with Firebase Authentication and Team Hours.
+Version 2.5.0 — Expo SDK 57 with optional 8-hour weekday straight-time mode.
 
 Timesheet scanning is disabled and marked Coming Soon for this public release.
 
 Clock-in and clock-out fields now support typed times as well as dropdown choices.
-Team Hours now shows entry notes, and users can create their own accounts.
+The Dashboard navigation now sits below the header, all active buttons have press
+feedback, date choices show weekdays, and pay-period progress follows the actual day.
+Team Hours supports reviewed, duplicate-aware imports without sharing pay data.
 See `V2.3-RELEASE-NOTES.md` for required rules and membership setup.
+See `V2.4-RELEASE-NOTES.md` for this release's UI and import changes.
+See `V2.4.1-RELEASE-NOTES.md` for the imported-payroll totals update.
+See `V2.5-RELEASE-NOTES.md` for the weekday base-hours slider behavior.
 
 Start with `START-HERE-FIREBASE.md` for the remaining console setup and testing steps.
 

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Time & Pay Tracker",
     "slug": "time-pay-tracker",
-    "version": "2.3.1",
+    "version": "2.5.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "timepaytracker",
@@ -25,7 +25,7 @@
         "backgroundColor": "#071A33"
       },
       "package": "com.timepaytracker.mobile",
-      "versionCode": 8
+      "versionCode": 11
     }
   }
 }

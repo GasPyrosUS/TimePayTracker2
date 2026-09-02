@@ -1,4 +1,8 @@
-import { calculateEntry } from "./overtime";
+import {
+  calculateEntry,
+  getWeekdayBaseDates,
+  WEEKDAY_BASE_HOURS,
+} from "./overtime";
 import { formatTime12h } from "./timeFormat";
 import { SavedTimeCard } from "../types/models";
 
@@ -17,6 +21,14 @@ export function timeCardToCsv(card: SavedTimeCard): string {
   lines.push(["Hourly Rate", card.hourlyRate.toFixed(2)].map(csvCell).join(","));
   lines.push(
     ["Overtime Multiplier", card.overtimeMultiplier].map(csvCell).join(",")
+  );
+  lines.push(
+    [
+      "8-Hour Weekday Straight-Time Mode",
+      card.weekdayBaseHoursEnabled ? "Enabled" : "Disabled",
+    ]
+      .map(csvCell)
+      .join(",")
   );
   lines.push("");
 
@@ -38,11 +50,35 @@ export function timeCardToCsv(card: SavedTimeCard): string {
       .join(",")
   );
 
+  if (card.weekdayBaseHoursEnabled) {
+    for (const date of getWeekdayBaseDates(card.periodStart)) {
+      const straightPay = WEEKDAY_BASE_HOURS * card.hourlyRate;
+      lines.push(
+        [
+          date,
+          "",
+          "",
+          0,
+          WEEKDAY_BASE_HOURS.toFixed(2),
+          "0.00",
+          WEEKDAY_BASE_HOURS.toFixed(2),
+          straightPay.toFixed(2),
+          "0.00",
+          straightPay.toFixed(2),
+          "Automatic weekday straight-time base",
+        ]
+          .map(csvCell)
+          .join(",")
+      );
+    }
+  }
+
   for (const entry of card.entries) {
     const calculated = calculateEntry(
       entry,
       card.hourlyRate,
-      card.overtimeMultiplier
+      card.overtimeMultiplier,
+      !!card.weekdayBaseHoursEnabled
     );
 
     lines.push(

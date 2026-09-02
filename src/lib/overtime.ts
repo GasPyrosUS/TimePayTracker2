@@ -1,7 +1,8 @@
-import { CalculatedEntry, TimeEntry } from "../types/models";
+import { CalculatedEntry, PaySettings, TimeEntry } from "../types/models";
 import { addLocalDays } from "./dates";
 
 const MINUTES_PER_DAY = 24 * 60;
+export const WEEKDAY_BASE_HOURS = 8;
 
 function toMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
@@ -24,7 +25,8 @@ function round(value: number): number {
 export function calculateEntry(
   entry: TimeEntry,
   hourlyRate: number,
-  overtimeMultiplier = 1.5
+  overtimeMultiplier = 1.5,
+  weekdayBaseHoursEnabled = false
 ): CalculatedEntry {
   const start = toMinutes(entry.clockIn);
   let end = toMinutes(entry.clockOut);
@@ -54,9 +56,13 @@ export function calculateEntry(
     else overtimeMinutes++;
   }
 
-  const regularHours = round(regularMinutes / 60);
+  // In weekday-base mode, straight time is supplied once per Mon-Fri period
+  // date below. Individual entries contribute only their overtime portion.
+  const regularHours = weekdayBaseHoursEnabled ? 0 : round(regularMinutes / 60);
   const overtimeHours = round(overtimeMinutes / 60);
-  const paidHours = round((regularMinutes + overtimeMinutes) / 60);
+  const paidHours = weekdayBaseHoursEnabled
+    ? overtimeHours
+    : round((regularMinutes + overtimeMinutes) / 60);
   const regularPay = round(regularHours * hourlyRate);
   const overtimePay = round(overtimeHours * hourlyRate * overtimeMultiplier);
 
@@ -81,6 +87,54 @@ export function formatMoney(value: number): string {
 
 export function getPayPeriodDates(startDate: string): string[] {
   return Array.from({ length: 14 }, (_, i) => addLocalDays(startDate, i));
+}
+
+export function isWeekdayDate(date: string): boolean {
+  const weekday = new Date(`${date}T00:00:00`).getDay();
+  return weekday >= 1 && weekday <= 5;
+}
+
+export function getWeekdayBaseDates(startDate: string): string[] {
+  return getPayPeriodDates(startDate).filter(isWeekdayDate);
+}
+
+export function calculatePayPeriodTotals(
+  entries: TimeEntry[],
+  settings: PaySettings
+): {
+  regularHours: number;
+  overtimeHours: number;
+  paidHours: number;
+  estimatedGrossPay: number;
+} {
+  const periodDates = new Set(getPayPeriodDates(settings.periodStart));
+  const weekdayBaseHours = settings.weekdayBaseHoursEnabled
+    ? getWeekdayBaseDates(settings.periodStart).length * WEEKDAY_BASE_HOURS
+    : 0;
+  return entries
+    .filter(entry => periodDates.has(entry.date))
+    .map(entry =>
+      calculateEntry(
+        entry,
+        settings.hourlyRate,
+        settings.overtimeMultiplier,
+        settings.weekdayBaseHoursEnabled
+      )
+    )
+    .reduce(
+      (totals, entry) => ({
+        regularHours: totals.regularHours + entry.regularHours,
+        overtimeHours: totals.overtimeHours + entry.overtimeHours,
+        paidHours: totals.paidHours + entry.paidHours,
+        estimatedGrossPay: totals.estimatedGrossPay + entry.totalPay,
+      }),
+      {
+        regularHours: weekdayBaseHours,
+        overtimeHours: 0,
+        paidHours: weekdayBaseHours,
+        estimatedGrossPay: weekdayBaseHours * settings.hourlyRate,
+      }
+    );
 }
 
 export function dateLabel(date: string): string {

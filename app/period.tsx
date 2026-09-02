@@ -6,16 +6,19 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
+import { AnimatedPressable } from "../src/components/AnimatedPressable";
 import { useAppTheme } from "../src/context/ThemeContext";
 import { ThemeColors } from "../src/data/theme";
 import {
   calculateEntry,
+  calculatePayPeriodTotals,
   dateLabel,
   formatMoney,
   getPayPeriodDates,
+  isWeekdayDate,
+  WEEKDAY_BASE_HOURS,
 } from "../src/lib/overtime";
 import { addLocalDays } from "../src/lib/dates";
 import { formatTime12h } from "../src/lib/timeFormat";
@@ -105,7 +108,8 @@ export default function Period() {
         calculateEntry(
           entry,
           settings.hourlyRate,
-          settings.overtimeMultiplier
+          settings.overtimeMultiplier,
+          settings.weekdayBaseHoursEnabled
         )
       ),
     [entries, settings]
@@ -113,6 +117,10 @@ export default function Period() {
 
   const days = dates.map(date => {
     const matching = calculated.filter(entry => entry.date === date);
+    const baseRegular =
+      settings.weekdayBaseHoursEnabled && isWeekdayDate(date)
+        ? WEEKDAY_BASE_HOURS
+        : 0;
 
     return matching.reduce(
       (summary, entry) => ({
@@ -121,25 +129,23 @@ export default function Period() {
         overtime: summary.overtime + entry.overtimeHours,
         pay: summary.pay + entry.totalPay,
       }),
-      { date, regular: 0, overtime: 0, pay: 0 }
+      {
+        date,
+        regular: baseRegular,
+        overtime: 0,
+        pay: baseRegular * settings.hourlyRate,
+      }
     );
   });
 
-  const totals = days.reduce(
-    (summary, day) => ({
-      regular: summary.regular + day.regular,
-      overtime: summary.overtime + day.overtime,
-      pay: summary.pay + day.pay,
-    }),
-    { regular: 0, overtime: 0, pay: 0 }
-  );
+  const totals = calculatePayPeriodTotals(entries, settings);
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Pressable onPress={() => router.back()}>
+        <AnimatedPressable onPress={() => router.back()}>
           <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <Text style={styles.header}>Pay Period</Text>
         <Text style={styles.range}>
@@ -147,36 +153,46 @@ export default function Period() {
           {dateLabel(addLocalDays(settings.periodStart, 13))}
         </Text>
 
+        {settings.weekdayBaseHoursEnabled && (
+          <View style={styles.weekdayModeNotice}>
+            <Text style={styles.weekdayModeTitle}>8-hour weekday mode is on</Text>
+            <Text style={styles.weekdayModeText}>
+              Every Monday–Friday below includes 8 straight hours. Saved time
+              entries contribute overtime only.
+            </Text>
+          </View>
+        )}
+
         <View style={styles.totalCard}>
           <Text style={styles.totalLabel}>ESTIMATED GROSS PAY</Text>
-          <Text style={styles.totalPay}>{formatMoney(totals.pay)}</Text>
+          <Text style={styles.totalPay}>{formatMoney(totals.estimatedGrossPay)}</Text>
 
           <View style={styles.totalRow}>
             <View style={styles.metric}>
               <Text style={styles.metricLabel}>Straight</Text>
               <Text style={[styles.metricValue, { color: colors.green }]}>
-                {totals.regular.toFixed(1)} hrs
+                {totals.regularHours.toFixed(1)} hrs
               </Text>
             </View>
 
             <View style={styles.metric}>
               <Text style={styles.metricLabel}>Overtime</Text>
               <Text style={[styles.metricValue, { color: colors.orange }]}>
-                {totals.overtime.toFixed(1)} hrs
+                {totals.overtimeHours.toFixed(1)} hrs
               </Text>
             </View>
 
             <View style={styles.metric}>
               <Text style={styles.metricLabel}>Total</Text>
               <Text style={styles.metricValue}>
-                {(totals.regular + totals.overtime).toFixed(1)} hrs
+                {totals.paidHours.toFixed(1)} hrs
               </Text>
             </View>
           </View>
         </View>
 
         <View style={styles.cardActions}>
-          <Pressable
+          <AnimatedPressable
             style={[
               styles.saveCardButton,
               savingCard && styles.buttonDisabled,
@@ -187,16 +203,16 @@ export default function Period() {
             <Text style={styles.saveCardText}>
               {savingCard ? "SAVING…" : "SAVE TIME CARD"}
             </Text>
-          </Pressable>
+          </AnimatedPressable>
 
-          <Pressable
+          <AnimatedPressable
             style={styles.historyButton}
             onPress={() => router.push("/timecards")}
           >
             <Text style={styles.historyText}>
               VIEW SAVED CARDS / EXPORT
             </Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>
 
         <ComingSoonScan style={styles.scanButton} label="SCAN / IMPORT TIMESHEET" />
@@ -214,7 +230,7 @@ export default function Period() {
             return b.id.localeCompare(a.id);
           })
           .map(entry => (
-            <Pressable
+            <AnimatedPressable
               key={entry.id}
               style={styles.savedEntry}
               onPress={() =>
@@ -250,7 +266,7 @@ export default function Period() {
                 </Text>
                 <Text style={styles.editLink}>EDIT ›</Text>
               </View>
-            </Pressable>
+            </AnimatedPressable>
           ))}
 
         <Text style={[styles.sectionTitle, { marginTop: 12 }]}>
@@ -297,6 +313,16 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: 4,
       marginBottom: 16,
     },
+    weekdayModeNotice: {
+      backgroundColor: colors.surfaceAlt,
+      borderColor: colors.green,
+      borderRadius: 12,
+      borderWidth: 1,
+      marginBottom: 14,
+      padding: 13,
+    },
+    weekdayModeTitle: { color: colors.green, fontWeight: "900" },
+    weekdayModeText: { color: colors.text, fontSize: 12, lineHeight: 18, marginTop: 4 },
     totalCard: {
       backgroundColor: colors.navy2,
       borderRadius: 17,

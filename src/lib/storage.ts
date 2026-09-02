@@ -31,6 +31,7 @@ export const defaultSettings: PaySettings = {
   hourlyRate: 25,
   overtimeMultiplier: 1.5,
   periodStart: localDateString(),
+  weekdayBaseHoursEnabled: false,
 };
 
 export async function loadEntries(): Promise<TimeEntry[]> {

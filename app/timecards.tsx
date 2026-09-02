@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
+import { AnimatedPressable } from "../src/components/AnimatedPressable";
 import { useAppTheme } from "../src/context/ThemeContext";
 import { ThemeColors } from "../src/data/theme";
 import { dateLabel, formatMoney } from "../src/lib/overtime";
@@ -43,9 +43,9 @@ export default function TimeCards() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Pressable onPress={() => router.back()}>
+        <AnimatedPressable onPress={() => router.back()}>
           <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <Text style={styles.header}>Saved Time Cards</Text>
         <Text style={styles.subtitle}>
@@ -80,7 +80,7 @@ export default function TimeCards() {
                 <Metric label="Paid" value={`${card.paidHours.toFixed(2)} hrs`} styles={styles} />
               </View>
 
-              <Pressable
+              <AnimatedPressable
                 style={styles.exportButton}
                 onPress={() => void exportCard(card)}
                 disabled={exportingId === card.id}
@@ -88,7 +88,7 @@ export default function TimeCards() {
                 <Text style={styles.exportText}>
                   {exportingId === card.id ? "PREPARING CSV…" : "EXPORT CSV"}
                 </Text>
-              </Pressable>
+              </AnimatedPressable>
             </View>
           ))
         )}

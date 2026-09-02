@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import { AppState, Pressable, SafeAreaView, Text, View } from "react-native";
+import { AppState, SafeAreaView, Text, View } from "react-native";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { getFirebase } from "../services/firebase";
 import { hasUnclaimedData, selectStorageScope } from "../lib/storageScope";
@@ -7,6 +7,7 @@ import { loadEntries, subscribeEntries } from "../lib/storage";
 import { loadMembership, publishLocalHours } from "../services/firestoreTeam";
 import { firebaseMessage } from "../services/firebaseErrors";
 import { useAppTheme } from "./ThemeContext";
+import { AnimatedPressable } from "../components/AnimatedPressable";
 
 const Context = createContext<{ user: User | null; syncStatus: string; retry: () => void }>({
   user: null, syncStatus: "Sign in to share hours.", retry: () => {},
@@ -87,11 +88,11 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       <Text style={{ color: colors.text, fontSize: 24, fontWeight: "900" }}>{claim ? "Keep your existing time cards" : "Opening your account…"}</Text>
       {claim && <>
         <Text style={{ color: colors.muted, lineHeight: 22 }}>Signed in as {user?.email}. Do the entries and private pay settings already on this device belong to you? If yes, they will be copied to this account and work hours and entry notes will be shared after team approval. Rates, pay and saved card files stay private on this device. Keep private or pay information out of notes. The originals remain as a backup.</Text>
-        <Pressable disabled={busy} onPress={() => void chooseLegacy(true)} style={{ padding: 16, backgroundColor: colors.green, borderRadius: 12 }}><Text style={{ color: colors.onPrimary, fontWeight: "900" }}>YES — USE MY EXISTING DATA</Text></Pressable>
-        <Pressable disabled={busy} onPress={() => void chooseLegacy(false)} style={{ padding: 16 }}><Text style={{ color: colors.text }}>No — start this account empty</Text></Pressable>
+        <AnimatedPressable disabled={busy} onPress={() => void chooseLegacy(true)} style={{ padding: 16, backgroundColor: colors.green, borderRadius: 12 }}><Text style={{ color: colors.onPrimary, fontWeight: "900" }}>YES — USE MY EXISTING DATA</Text></AnimatedPressable>
+        <AnimatedPressable disabled={busy} onPress={() => void chooseLegacy(false)} style={{ padding: 16 }}><Text style={{ color: colors.text }}>No — start this account empty</Text></AnimatedPressable>
       </>}
       {!!error && <Text style={{ color: colors.red }}>{error}</Text>}
-      {(claim || !!error) && <Pressable disabled={busy} onPress={() => void signOut(getFirebase().auth).catch(e => setError(firebaseMessage(e)))}><Text style={{ color: colors.green }}>Sign out</Text></Pressable>}
+      {(claim || !!error) && <AnimatedPressable disabled={busy} onPress={() => void signOut(getFirebase().auth).catch(e => setError(firebaseMessage(e)))}><Text style={{ color: colors.green }}>Sign out</Text></AnimatedPressable>}
     </View></SafeAreaView>;
   }
 

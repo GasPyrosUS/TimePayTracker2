@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
 import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { getFirebase } from "../services/firebase";
 import { teamId } from "../services/firebaseConfig";
@@ -7,6 +7,7 @@ import { firebaseMessage } from "../services/firebaseErrors";
 import { registerAccount } from "../services/registration";
 import { useAccount } from "../context/AccountContext";
 import { useAppTheme } from "../context/ThemeContext";
+import { AnimatedPressable } from "./AnimatedPressable";
 
 export function AccountPanel() {
   const { colors } = useAppTheme();
@@ -41,17 +42,17 @@ export function AccountPanel() {
       <Text selectable style={{ color: colors.muted, fontSize: 12 }}>Firebase UID: {user.uid}</Text>
       <Text style={{ color: colors.muted, fontSize: 12 }}>New accounts need team approval. Send your email or UID to your administrator so they can add your membership. Creating an account does not grant access to coworkers' hours or notes.</Text>
       <Text accessibilityLiveRegion="polite" style={{ color: colors.muted }}>{syncStatus}</Text>
-      <Pressable onPress={retry} style={button}><Text style={{ color: colors.onPrimary, fontWeight: "900" }}>RETRY SYNC</Text></Pressable>
+      <AnimatedPressable onPress={retry} style={button}><Text style={{ color: colors.onPrimary, fontWeight: "900" }}>RETRY SYNC</Text></AnimatedPressable>
       <Text style={{ color: colors.muted, fontSize: 12 }}>Private cards, pay and running clock sessions stay on this device under your account. Sign back into the same account to see them. Team Hours is the cross-device view.</Text>
-      <Pressable disabled={busy} onPress={() => void act("logout")}><Text style={{ color: colors.green, paddingVertical: 8 }}>Sign out (keeps local data)</Text></Pressable>
+      <AnimatedPressable disabled={busy} onPress={() => void act("logout")}><Text style={{ color: colors.green, paddingVertical: 8 }}>Sign out (keeps local data)</Text></AnimatedPressable>
     </> : <>
       <Text style={{ color: colors.muted, lineHeight: 20 }}>Sign in or create an account. After administrator approval, saved work hours and entry notes are shared with your team. Pay rates and pay totals stay private. Do not put private or pay information in notes.</Text>
       <TextInput accessibilityLabel="Email address" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" value={email} onChangeText={setEmail} placeholder="Email address" placeholderTextColor={colors.muted} style={input} />
       <TextInput accessibilityLabel="Password" autoCapitalize="none" autoCorrect={false} secureTextEntry autoComplete={registering ? "new-password" : "current-password"} value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={colors.muted} style={input} />
       {registering && <TextInput accessibilityLabel="Confirm password" autoCapitalize="none" autoCorrect={false} secureTextEntry autoComplete="new-password" value={confirmation} onChangeText={setConfirmation} placeholder="Confirm password" placeholderTextColor={colors.muted} style={input} />}
-      <Pressable accessibilityRole="button" disabled={busy || !email.trim() || !password || (registering && !confirmation)} onPress={() => void act(registering ? "register" : "login")} style={button}><Text style={{ color: colors.onPrimary, fontWeight: "900" }}>{busy ? "PLEASE WAIT…" : registering ? "CREATE ACCOUNT" : "SIGN IN & SHARE HOURS"}</Text></Pressable>
-      <Pressable accessibilityRole="button" disabled={busy} onPress={() => { setRegistering(!registering); setMessage(""); setPassword(""); setConfirmation(""); }}><Text style={{ color: colors.green, paddingVertical: 8 }}>{registering ? "Already have an account? Sign in" : "New here? Create an account"}</Text></Pressable>
-      <Pressable disabled={busy || !email.trim()} onPress={() => void act("reset")}><Text style={{ color: colors.green, paddingVertical: 8 }}>Send password reset email</Text></Pressable>
+      <AnimatedPressable accessibilityRole="button" disabled={busy || !email.trim() || !password || (registering && !confirmation)} onPress={() => void act(registering ? "register" : "login")} style={button}><Text style={{ color: colors.onPrimary, fontWeight: "900" }}>{busy ? "PLEASE WAIT…" : registering ? "CREATE ACCOUNT" : "SIGN IN & SHARE HOURS"}</Text></AnimatedPressable>
+      <AnimatedPressable accessibilityRole="button" disabled={busy} onPress={() => { setRegistering(!registering); setMessage(""); setPassword(""); setConfirmation(""); }}><Text style={{ color: colors.green, paddingVertical: 8 }}>{registering ? "Already have an account? Sign in" : "New here? Create an account"}</Text></AnimatedPressable>
+      <AnimatedPressable disabled={busy || !email.trim()} onPress={() => void act("reset")}><Text style={{ color: colors.green, paddingVertical: 8 }}>Send password reset email</Text></AnimatedPressable>
     </>}
     {!!message && <Text accessibilityLiveRegion="polite" style={{ color: colors.text }}>{message}</Text>}
   </View>;

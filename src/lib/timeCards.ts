@@ -1,6 +1,6 @@
 import { addLocalDays, localDateString } from "./dates";
 import { captureStorageScope } from "./storageScope";
-import { calculateEntry, getPayPeriodDates } from "./overtime";
+import { calculatePayPeriodTotals, getPayPeriodDates } from "./overtime";
 import {
   loadActiveClock,
   loadEntries,
@@ -18,19 +18,7 @@ function buildTimeCard(
 ): SavedTimeCard {
   const dates = new Set(getPayPeriodDates(settings.periodStart));
   const periodEntries = entries.filter(entry => dates.has(entry.date));
-  const calculated = periodEntries.map(entry =>
-    calculateEntry(entry, settings.hourlyRate, settings.overtimeMultiplier)
-  );
-
-  const totals = calculated.reduce(
-    (total, entry) => ({
-      regularHours: total.regularHours + entry.regularHours,
-      overtimeHours: total.overtimeHours + entry.overtimeHours,
-      paidHours: total.paidHours + entry.paidHours,
-      grossPay: total.grossPay + entry.totalPay,
-    }),
-    { regularHours: 0, overtimeHours: 0, paidHours: 0, grossPay: 0 }
-  );
+  const periodTotals = calculatePayPeriodTotals(periodEntries, settings);
 
   return {
     id: `timecard-${settings.periodStart}`,
@@ -40,8 +28,12 @@ function buildTimeCard(
     source,
     hourlyRate: settings.hourlyRate,
     overtimeMultiplier: settings.overtimeMultiplier,
+    weekdayBaseHoursEnabled: settings.weekdayBaseHoursEnabled,
     entries: periodEntries,
-    ...totals,
+    regularHours: periodTotals.regularHours,
+    overtimeHours: periodTotals.overtimeHours,
+    paidHours: periodTotals.paidHours,
+    grossPay: periodTotals.estimatedGrossPay,
   };
 }
 
@@ -100,7 +92,7 @@ export async function ensureCurrentPayPeriod(): Promise<{
     const periodDates = new Set(getPayPeriodDates(settings.periodStart));
     const periodEntries = entries.filter(entry => periodDates.has(entry.date));
 
-    if (periodEntries.length > 0) {
+    if (periodEntries.length > 0 || settings.weekdayBaseHoursEnabled) {
       if (!isCurrent()) throw new Error("Account changed during pay-period rollover.");
       await savePeriodTimeCard(settings, entries, "automatic");
     }

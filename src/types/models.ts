@@ -9,12 +9,20 @@ export type TimeEntry = {
   clockOut: string;   // HH:mm
   breakMinutes: number;
   notes?: string;
+  importSource?: {
+    type: "team-hours";
+    recordId: string;
+    userId: string;
+    memberName: string;
+    importedAt: string;
+  };
 };
 
 export type PaySettings = {
   hourlyRate: number;
   overtimeMultiplier: number;
   periodStart: string; // YYYY-MM-DD
+  weekdayBaseHoursEnabled: boolean;
 };
 
 export type CalculatedEntry = TimeEntry & {
@@ -52,6 +60,7 @@ export type SavedTimeCard = {
   source: TimeCardSaveSource;
   hourlyRate: number;
   overtimeMultiplier: number;
+  weekdayBaseHoursEnabled?: boolean;
   entries: TimeEntry[];
   regularHours: number;
   overtimeHours: number;

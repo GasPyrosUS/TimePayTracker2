@@ -87,6 +87,92 @@ test('typed and dropdown time values produce identical pay and overtime results'
   assert.deepEqual(calculateEntry(typed, 25, 1.5), calculateEntry(shift, 25, 1.5));
 });
 
+test('pay-period progress follows the actual day and clamps to the 14-day range', () => {
+  const { getPayPeriodProgress, weekdayDateLabel } = load('src/lib/dates.ts');
+  assert.deepEqual(getPayPeriodProgress('2026-08-31', '2026-08-31'), {
+    day: 1, totalDays: 14, fraction: 1 / 14, weekday: 'Monday'
+  });
+  assert.deepEqual(getPayPeriodProgress('2026-08-31', '2026-09-05'), {
+    day: 6, totalDays: 14, fraction: 6 / 14, weekday: 'Saturday'
+  });
+  assert.equal(getPayPeriodProgress('2026-08-31', '2026-08-01').day, 1);
+  const after = getPayPeriodProgress('2026-08-31', '2026-10-01');
+  assert.equal(after.day, 14); assert.equal(after.fraction, 1); assert.equal(after.weekday, 'Sunday');
+  assert.equal(weekdayDateLabel('2026-09-01'), 'Tuesday, Sep 1');
+});
+test('current pay-period totals include imported entries using private local settings', () => {
+  const { calculatePayPeriodTotals } = load('src/lib/overtime.ts');
+  const service = load('src/services/teamHoursImport.ts');
+  const record = project(entry);
+  const imported = service.createTeamHoursEntry(record, '2026-09-01T12:00:00.000Z');
+  const settings = { hourlyRate: 42, overtimeMultiplier: 2, periodStart: '2026-08-24' };
+  const totals = calculatePayPeriodTotals([imported], settings);
+  assert.deepEqual(totals, {
+    regularHours: 7.5,
+    overtimeHours: 0,
+    paidHours: 7.5,
+    estimatedGrossPay: 315
+  });
+  assert.deepEqual(calculatePayPeriodTotals([{ ...imported, date: '2026-08-01' }], settings), {
+    regularHours: 0,
+    overtimeHours: 0,
+    paidHours: 0,
+    estimatedGrossPay: 0
+  });
+});
+test('weekday base mode supplies 8 straight hours Mon-Fri and entries add overtime only', () => {
+  const overtime = load('src/lib/overtime.ts');
+  const settings = {
+    hourlyRate: 25,
+    overtimeMultiplier: 1.5,
+    periodStart: '2026-08-24',
+    weekdayBaseHoursEnabled: true
+  };
+  const weekdayShift = {
+    ...entry,
+    date: '2026-08-24',
+    clockIn: '06:00',
+    clockOut: '16:00',
+    breakMinutes: 0
+  };
+  const normal = overtime.calculateEntry(weekdayShift, 25, 1.5);
+  assert.equal(normal.regularHours, 8); assert.equal(normal.overtimeHours, 2);
+  assert.equal(normal.totalPay, 275);
+  const baseMode = overtime.calculateEntry(weekdayShift, 25, 1.5, true);
+  assert.equal(baseMode.regularHours, 0); assert.equal(baseMode.overtimeHours, 2);
+  assert.equal(baseMode.paidHours, 2); assert.equal(baseMode.regularPay, 0);
+  assert.equal(baseMode.overtimePay, 75); assert.equal(baseMode.totalPay, 75);
+  const straightOnly = overtime.calculateEntry({ ...weekdayShift, clockIn: '07:00', clockOut: '15:00' }, 25, 1.5, true);
+  assert.equal(straightOnly.regularHours, 0); assert.equal(straightOnly.overtimeHours, 0);
+  assert.equal(straightOnly.totalPay, 0);
+  const weekend = overtime.calculateEntry({ ...weekdayShift, date: '2026-08-29', clockIn: '07:00', clockOut: '15:00' }, 25, 1.5, true);
+  assert.equal(weekend.regularHours, 0); assert.equal(weekend.overtimeHours, 8);
+  assert.equal(weekend.totalPay, 300);
+  assert.equal(overtime.getWeekdayBaseDates(settings.periodStart).length, 10);
+  assert.deepEqual(overtime.calculatePayPeriodTotals([weekdayShift], settings), {
+    regularHours: 80,
+    overtimeHours: 2,
+    paidHours: 82,
+    estimatedGrossPay: 2075
+  });
+});
+test('weekday base mode is represented accurately in saved-card CSV output', () => {
+  const { timeCardToCsv } = load('src/lib/timeCardCsv.ts');
+  const card = {
+    id: 'base-card', periodStart: '2026-08-24', periodEnd: '2026-09-06',
+    savedAt: '2026-09-06T12:00:00.000Z', source: 'manual', hourlyRate: 25,
+    overtimeMultiplier: 1.5, weekdayBaseHoursEnabled: true,
+    entries: [{ ...entry, date: '2026-08-24', clockIn: '06:00', clockOut: '16:00', breakMinutes: 0 }],
+    regularHours: 80, overtimeHours: 2, paidHours: 82, grossPay: 2075
+  };
+  const csv = timeCardToCsv(card);
+  assert.match(csv, /8-Hour Weekday Straight-Time Mode","Enabled/);
+  assert.equal((csv.match(/Automatic weekday straight-time base/g) || []).length, 10);
+  assert.match(csv, /TOTAL STRAIGHT HOURS","80\.00/);
+  assert.match(csv, /TOTAL OVERTIME HOURS","2\.00/);
+  assert.match(csv, /ESTIMATED GROSS PAY","2075\.00/);
+});
+
 test('web delete confirmation respects OK and Cancel without using native Alert', async () => {
   const originalWindow = global.window;
   let confirmResult = false; let prompt;
@@ -167,6 +253,26 @@ test('response parser rejects any unexpected field including pay', () => {
   assert.throws(() => shared.parseHours({ ...row, hourlyRate: 20 }, row.id, row.teamId));
   assert.throws(() => shared.parseHours(row, row.id, 'other-team'));
 });
+test('team-hours imports remain pay-free, detect duplicates and preserve local calculation', () => {
+  const service = load('src/services/teamHoursImport.ts');
+  const { calculateEntry } = load('src/lib/overtime.ts');
+  const record = project(entry);
+  const imported = service.createTeamHoursEntry(record, '2026-09-01T12:00:00.000Z');
+  assert.equal(imported.date, record.date);
+  assert.equal(imported.clockIn, record.clockIn);
+  assert.equal(imported.clockOut, record.clockOut);
+  assert.equal(imported.breakMinutes, record.breakMinutes);
+  for (const field of ['hourlyRate', 'overtimeRate', 'regularHours', 'overtimeHours', 'totalHours', 'grossPay', 'estimatedPay', 'totalPay']) {
+    assert.equal(imported[field], undefined, field);
+  }
+  assert.equal(service.isTeamHoursDuplicate(imported, record), true);
+  assert.equal(service.isTeamHoursDuplicate({ ...imported, importSource: undefined }, record), true);
+  assert.equal(calculateEntry(imported, 42, 2).totalPay, 315);
+  const duplicateShift = { ...record, id: 'bob-same-shift', userId: 'bob', memberName: 'Bob' };
+  const partition = service.partitionTeamHoursImports([record, duplicateShift], []);
+  assert.deepEqual(partition.ready.map(row => row.id), [record.id]);
+  assert.equal(partition.duplicateIds.has(duplicateShift.id), true);
+});
 test('sync is stable across timestamps and isolates deletion to local manifest', () => {
   const row = project(entry); const first = shared.planSync([row], {});
   assert.equal(first.writes.length, 1);
@@ -204,7 +310,19 @@ test('private account storage switches safely and does not leak saved pay or ses
   await scope.selectStorageScope('alice');
   assert.equal((await storage.loadEntries()).length, 1);
   assert.equal((await storage.loadSettings()).hourlyRate, 90);
+  assert.equal((await storage.loadSettings()).weekdayBaseHoursEnabled, false);
   assert.equal((await storage.loadActiveClock()).clockIn, '07:00');
+});
+test('weekday base slider setting persists privately per account', async () => {
+  const store = memory(); const isolated = loader({ '@react-native-async-storage/async-storage': store });
+  const scope = isolated('src/lib/storageScope.ts'); const storage = isolated('src/lib/storage.ts');
+  await scope.selectStorageScope('alice');
+  await storage.saveSettings({ hourlyRate: 25, overtimeMultiplier: 1.5, periodStart: '2026-08-24', weekdayBaseHoursEnabled: true });
+  assert.equal((await storage.loadSettings()).weekdayBaseHoursEnabled, true);
+  await scope.selectStorageScope('bob');
+  assert.equal((await storage.loadSettings()).weekdayBaseHoursEnabled, false);
+  await scope.selectStorageScope('alice');
+  assert.equal((await storage.loadSettings()).weekdayBaseHoursEnabled, true);
 });
 test('legacy migration is idempotent and never overwrites newer account data', async () => {
   const store = memory(); store.data.set('tpt_entries_v1_1', '["old"]');

@@ -4,10 +4,10 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   Alert,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
+import { AnimatedPressable } from "../src/components/AnimatedPressable";
 import { useAppTheme } from "../src/context/ThemeContext";
 import { ThemeColors } from "../src/data/theme";
 import {
@@ -105,9 +105,9 @@ export default function Clock() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <Pressable onPress={() => router.back()}>
+        <AnimatedPressable onPress={() => router.back()}>
           <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <Text style={styles.header}>Time Clock</Text>
 
@@ -158,7 +158,7 @@ export default function Clock() {
           <Text style={styles.rule}>Sat–Sun • All hours → OT</Text>
         </View>
 
-        <Pressable
+        <AnimatedPressable
           style={[
             styles.button,
             { backgroundColor: clockedIn ? colors.red : colors.green },
@@ -168,21 +168,21 @@ export default function Clock() {
           <Text style={styles.buttonText}>
             {clockedIn ? "CLOCK OUT" : "CLOCK IN"}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
 
         {clockedIn && (
-          <Pressable style={styles.breakButton} onPress={toggleBreak}>
+          <AnimatedPressable style={styles.breakButton} onPress={toggleBreak}>
             <Text style={styles.breakText}>
               {activeClock?.breakMinutes
                 ? "30-MIN BREAK ADDED"
                 : "ADD 30-MIN BREAK"}
             </Text>
-          </Pressable>
+          </AnimatedPressable>
         )}
 
-        <Pressable style={styles.manual} onPress={() => router.push("/entry")}>
+        <AnimatedPressable style={styles.manual} onPress={() => router.push("/entry")}>
           <Text style={styles.manualText}>+ MANUAL TIME ENTRY</Text>
-        </Pressable>
+        </AnimatedPressable>
       </View>
     </SafeAreaView>
   );

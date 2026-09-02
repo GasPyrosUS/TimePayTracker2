@@ -5,11 +5,11 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Pressable,
   Alert,
   ScrollView,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
+import { AnimatedPressable } from "../src/components/AnimatedPressable";
 import { useAppTheme } from "../src/context/ThemeContext";
 import { ThemeColors } from "../src/data/theme";
 import {
@@ -39,6 +39,8 @@ export default function Settings() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [settings, setSettings] = useState<PaySettings>(defaultSettings);
+  const [saving, setSaving] = useState(false);
+  const [appliedMessage, setAppliedMessage] = useState("");
 
   useFocusEffect(
     useCallback(() => {
@@ -83,14 +85,26 @@ export default function Settings() {
       return;
     }
 
-    await saveSettings(settings);
-
-    Alert.alert(
-      "Settings saved",
-      `Current pay period:\n${dateLabel(settings.periodStart)} – ${dateLabel(
+    setSaving(true);
+    setAppliedMessage("");
+    try {
+      await saveSettings(settings);
+      const period = `${dateLabel(settings.periodStart)} – ${dateLabel(
         addLocalDays(settings.periodStart, 13)
-      )}`
-    );
+      )}`;
+      setAppliedMessage(`Settings applied • Current pay period: ${period}`);
+      Alert.alert(
+        "Settings applied",
+        `Your pay settings have been saved and applied.\n\nCurrent pay period:\n${period}`
+      );
+    } catch {
+      Alert.alert(
+        "Settings not applied",
+        "Your settings could not be saved. Please try again."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   function shiftPeriod(days: number) {
@@ -112,7 +126,7 @@ export default function Settings() {
     const selected = mode === value;
 
     return (
-      <Pressable
+      <AnimatedPressable
         key={value}
         style={[styles.appearanceOption, selected && styles.appearanceSelected]}
         onPress={() => void setMode(value)}
@@ -136,16 +150,16 @@ export default function Settings() {
         >
           {selected && <View style={styles.radioInner} />}
         </View>
-      </Pressable>
+      </AnimatedPressable>
     );
   }
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Pressable onPress={() => router.back()}>
+        <AnimatedPressable onPress={() => router.back()}>
           <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <Text style={styles.header}>Settings</Text>
 
@@ -243,19 +257,19 @@ export default function Settings() {
           </View>
 
           <View style={styles.periodButtons}>
-            <Pressable
+            <AnimatedPressable
               style={styles.periodButton}
               onPress={() => shiftPeriod(-14)}
             >
               <Text style={styles.periodButtonText}>‹ PREVIOUS 14 DAYS</Text>
-            </Pressable>
+            </AnimatedPressable>
 
-            <Pressable
+            <AnimatedPressable
               style={styles.periodButton}
               onPress={() => shiftPeriod(14)}
             >
               <Text style={styles.periodButtonText}>NEXT 14 DAYS ›</Text>
-            </Pressable>
+            </AnimatedPressable>
           </View>
 
           {isValidDateString(settings.periodStart) && (
@@ -288,9 +302,21 @@ export default function Settings() {
           </View>
         </View>
 
-        <Pressable style={styles.saveButton} onPress={save}>
-          <Text style={styles.saveButtonText}>SAVE PAY SETTINGS</Text>
-        </Pressable>
+        <AnimatedPressable
+          style={[styles.saveButton, saving && { opacity: 0.5 }]}
+          disabled={saving}
+          onPress={() => void save()}
+        >
+          <Text style={styles.saveButtonText}>
+            {saving ? "APPLYING SETTINGS…" : "SAVE & APPLY SETTINGS"}
+          </Text>
+        </AnimatedPressable>
+        {!!appliedMessage && (
+          <View accessibilityRole="alert" style={styles.appliedNotice}>
+            <Text style={styles.appliedTitle}>✓ Settings applied</Text>
+            <Text style={styles.appliedText}>{appliedMessage}</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -483,4 +509,14 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: "center",
     },
     saveButtonText: { color: colors.onPrimary, fontWeight: "900" },
+    appliedNotice: {
+      backgroundColor: colors.surfaceAlt,
+      borderColor: colors.green,
+      borderWidth: 1,
+      borderRadius: 12,
+      marginTop: 12,
+      padding: 14,
+    },
+    appliedTitle: { color: colors.green, fontWeight: "900" },
+    appliedText: { color: colors.text, fontSize: 12, lineHeight: 18, marginTop: 4 },
   });
